@@ -63,22 +63,56 @@ const int FPS = 60;
 SDL_Renderer *sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_ACCELERATED);
 
 while (true) {
+    SDL_SetRenderDrawColor(sdlRenderer, 0xff, 0xff, 0xff, 0xff);
     SDL_RenderClear(sdlRenderer);
     
     // draw box using gfx_primitives
-    Uint32 color = 0xffffffff;
-    Sint16 x1 = 0, x2 = 320;
-    Sint16 y1 = 0, y2 = 480;
+    Uint32 color = 0xffffff00;
+    Sint16 x1 = 60, x2 = 280;
+    Sint16 y1 = 160, y2 = 320;
     boxColor(sdlRenderer, x1, y1, x2, y2, color);
-
+    
     // draw circle using gfx_primitives
     Uint32 color2 = 0xff0000ff;
-    Sint16 x = 480, y = 240, r = 200;
+    Sint16 x = 480, y = 240, r = 100;
     filledCircleColor(sdlRenderer, x, y, r, color2);
-
+    
     SDL_RenderPresent(sdlRenderer);
     SDL_Delay(1000 / FPS);
 }
+```
+
+### Let's add Movement
+```c
+////// Main
+Sint16 x1 = 60, x2 = 280;
+Sint16 y1 = 160, y2 = 320;
+
+//////// While
+x1++; x2++;
+```
+
+### Let's add Fade transition
+```c
+////// Main
+Uint32 color2 = 0xff0000ff;
+
+//////// While
+color2 -= 0x01000000;
+```
+
+### Let's add Relative Rotation
+```c
+////// Main
+float theta = 0.f;
+
+//////// While
+// draw circle using gfx_primitives
+Sint16 x = 480, y = 240;
+Sint16 rotation_r = 20, r = 30;
+Sint16 rotation_x = x + rotation_r * sin(theta), rotation_y = y + rotation_r * cos(theta);
+filledCircleColor(sdlRenderer, rotation_x, rotation_y, r, color2);
+theta += 0.3f;
 ```
 
 ## Event Handling Intro
@@ -136,6 +170,13 @@ int max(int a, int b) {
 return a > b ? a : b;
 }
 
+void drawCircle(SDL_Renderer *sdlRenderer, int x, int y, Uint32 color) {
+    Sint16 width1 = SCREEN_WIDTH * y / CELL_NUM;
+    Sint16 height1 = SCREEN_HEIGHT * x / CELL_NUM;
+    Sint16 ry = SCREEN_WIDTH / (2 * CELL_NUM), rx = SCREEN_HEIGHT / (2 * CELL_NUM);
+    filledEllipseColor(sdlRenderer, width1 + ry, height1 + rx, ry, rx, color);
+}
+
 ///// Main
 
 SNAKE_POINT head = {.x=0, .y=2, .next=NULL, .previous=NULL};
@@ -148,6 +189,7 @@ head.previous = &tail;
 SNAKE_POINT *drawingPoint = &head;
 Uint32 color = 0xffff0000;
 
+// draw Snake
 while (drawingPoint->previous != NULL) {
     if (drawingPoint->x != drawingPoint->previous->x) {
         int a = drawingPoint->previous->x, b = drawingPoint->x;
@@ -215,19 +257,19 @@ if (betweenMovementTemp > 1.0f) {
 ## Step 4
 ```c
 void insertPoint(SNAKE_POINT *point) {
-SNAKE_POINT *newPoint = malloc(sizeof *newPoint);
-newPoint->previous = point->previous;
-newPoint->next = point;
-newPoint->x = point->x;
-newPoint->y = point->y;
-point->previous->next = newPoint;
-point->previous = newPoint;
+    SNAKE_POINT *newPoint = malloc(sizeof *newPoint);
+    newPoint->previous = point->previous;
+    newPoint->next = point;
+    newPoint->x = point->x;
+    newPoint->y = point->y;
+    point->previous->next = newPoint;
+    point->previous = newPoint;
 }
 
 void removePoint(SNAKE_POINT *point) {
-point->previous->next = point->next;
-point->next->previous = point->previous;
-free(point);
+    point->previous->next = point->next;
+    point->next->previous = point->previous;
+    free(point);
 }
 
 /////// Main
@@ -270,26 +312,26 @@ while (SDL_PollEvent(&sdlEvent)) {
             switch (sdlEvent.key.keysym.scancode) {
                 case SDL_SCANCODE_UP:
                     if (!(head.y == head.previous->y && head.x > head.previous->x)) {
-                    direction = 0;
-                    toThePositive = -1;
+                        direction = 0;
+                        toThePositive = -1;
                     }
                     break;
                 case SDL_SCANCODE_DOWN:
                     if (!(head.y == head.previous->y && head.x < head.previous->x)) {
-                    direction = 0;
-                    toThePositive = 1;
+                        direction = 0;
+                        toThePositive = 1;
                     }
                     break;
                 case SDL_SCANCODE_RIGHT:
                     if (!(head.x == head.previous->x && head.y < head.previous->y)) {
-                    direction = 1;
-                    toThePositive = 1;
+                        direction = 1;
+                        toThePositive = 1;
                     }
                     break;
                 case SDL_SCANCODE_LEFT:
                     if (!(head.x == head.previous->x && head.y > head.previous->y)) {
-                    direction = 1;
-                    toThePositive = -1;
+                        direction = 1;
+                        toThePositive = -1;
                     }
                     break;
             }
@@ -302,12 +344,12 @@ while (SDL_PollEvent(&sdlEvent)) {
 #include <time.h>
 
 typedef struct POSITION {
-int x;
-int y;
+    int x;
+    int y;
 } POSITION;
 
 int rangedRandom(int min, int upperBound) {
-return min + rand() % (upperBound - min);
+    return min + rand() % (upperBound - min);
 }
 
 bool checkConflict(SNAKE_POINT *head, int x, int y) {
@@ -376,10 +418,10 @@ int snakeLength(SNAKE_POINT *head) {
 //// Main
 ////// Move
 if (!inBetween(head.y, 0, CELL_NUM) || !inBetween(head.x, 0, CELL_NUM) ||
-checkConflict(head.previous, head.x, head.y)) {
-shallExit = SDL_TRUE;
+    checkConflict(head.previous, head.x, head.y)) {
+    shallExit = SDL_TRUE;
 }
 if (snakeLength(&head) == CELL_NUM * CELL_NUM) {
-shallExit = SDL_TRUE;
+    shallExit = SDL_TRUE;
 }
 ```

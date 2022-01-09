@@ -1,27 +1,17 @@
-//Using SDL and standard IO
 #include <SDL2/SDL.h>
 #include <SDL2/SDL2_gfxPrimitives.h>
 #include <stdio.h>
-#include <time.h>
 #include <stdbool.h>
 
-//Screen dimension constants
 const int FPS = 60;
 const int SCREEN_WIDTH = 640;
 const int SCREEN_HEIGHT = 480;
 const int CELL_NUM = 8;
 
-// cell per second
-const float SNAKE_SPEED = 1.0f;
-
 typedef struct SNAKEPOINT {
     int x, y;
     struct SNAKEPOINT *next, *previous;
 } SNAKE_POINT;
-
-int mod(int a, int b) {
-    return ((a % b) + b) % b;
-}
 
 int min(int a, int b) {
     return a < b ? a : b;
@@ -31,13 +21,16 @@ int max(int a, int b) {
     return a > b ? a : b;
 }
 
-int rangedRandom(int min, int upperBound) {
-    return min + rand() % (upperBound - min);
+int mod(int a, int b) {
+    return ((a % b) + b) % b;
 }
 
 bool inBetween(int number, int min, int max) {
     return number >= min && number <= max;
 }
+
+// cell per second
+const float SNAKE_SPEED = 1.0f;
 
 void drawBox(SDL_Renderer *sdlRenderer, int x, int y, Uint32 color) {
     Sint16 width1 = SCREEN_WIDTH * y / CELL_NUM;
@@ -68,10 +61,16 @@ void removePoint(SNAKE_POINT *point) {
     free(point);
 }
 
+#include <time.h>
+
 typedef struct POSITION {
     int x;
     int y;
 } POSITION;
+
+int rangedRandom(int min, int upperBound) {
+    return min + rand() % (upperBound - min);
+}
 
 bool checkConflict(SNAKE_POINT *head, int x, int y) {
     while (head->previous != NULL) {
@@ -119,6 +118,15 @@ int snakeLength(SNAKE_POINT *head) {
 int main() {
     srand(time(NULL));   // Initialization, should only be called once.
 
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0) {
+        printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
+        return 0;
+    }
+
+    SNAKE_POINT head = {.x=0, .y=2, .next=NULL, .previous=NULL};
+    SNAKE_POINT tail = {.x=0, .y=0, .next=&head, .previous=NULL};
+    head.previous = &tail;
+
     // 1-> right-left, 0-> top-down
     int direction = 1;
     // 1-> to the positive, -1-> reverse
@@ -126,22 +134,18 @@ int main() {
 
     float betweenMovementTemp = 0.0f;
 
-    SNAKE_POINT head = {.x=0, .y=2, .next=NULL, .previous=NULL};
-    SNAKE_POINT tail = {.x=0, .y=0, .next=&head, .previous=NULL};
-    head.previous = &tail;
-
     POSITION applePosition = randomApple(&head);
 
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0) {
-        printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
-        return 0;
-    }
-    SDL_Window *sdlWindow = SDL_CreateWindow("Snake_Game", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH,
+    SDL_Window *sdlWindow = SDL_CreateWindow("Test_Window", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                                             SCREEN_WIDTH,
                                              SCREEN_HEIGHT, SDL_WINDOW_OPENGL);
+
     SDL_Renderer *sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_ACCELERATED);
 
     SDL_bool shallExit = SDL_FALSE;
     while (shallExit == SDL_FALSE) {
+
+        SDL_SetRenderDrawColor(sdlRenderer, 0xff, 0xff, 0xff, 0xff);
         SDL_RenderClear(sdlRenderer);
 
         // draw table
@@ -151,49 +155,38 @@ int main() {
             }
         }
 
-        // listen for key events
-        SDL_Event sdlEvent;
-        while (SDL_PollEvent(&sdlEvent)) {
-            switch (sdlEvent.type) {
-                case SDL_QUIT:
-                    shallExit = SDL_TRUE;
-                    break;
-                case SDL_KEYUP:
-                    switch (sdlEvent.key.keysym.scancode) {
-                        case SDL_SCANCODE_UP:
-                            if (!(head.y == head.previous->y && head.x > head.previous->x)) {
-                                direction = 0;
-                                toThePositive = -1;
-                            }
-                            break;
-                        case SDL_SCANCODE_DOWN:
-                            if (!(head.y == head.previous->y && head.x < head.previous->x)) {
-                                direction = 0;
-                                toThePositive = 1;
-                            }
-                            break;
-                        case SDL_SCANCODE_RIGHT:
-                            if (!(head.x == head.previous->x && head.y < head.previous->y)) {
-                                direction = 1;
-                                toThePositive = 1;
-                            }
-                            break;
-                        case SDL_SCANCODE_LEFT:
-                            if (!(head.x == head.previous->x && head.y > head.previous->y)) {
-                                direction = 1;
-                                toThePositive = -1;
-                            }
-                            break;
-                    }
+        // draw Snake
+        SNAKE_POINT *drawingPoint = &head;
+        Uint32 color = 0xffff0000;
+
+        while (drawingPoint->previous != NULL) {
+            if (drawingPoint->x != drawingPoint->previous->x) {
+                int a = drawingPoint->previous->x, b = drawingPoint->x;
+                int theMin = min(a, b), theMax = max(a, b);
+                for (int i = theMin + 1; i < theMax; ++i) {
+                    drawBox(sdlRenderer, i, drawingPoint->y, color);
+                }
+            } else {
+                int a = drawingPoint->previous->y, b = drawingPoint->y;
+                int theMin = min(a, b), theMax = max(a, b);
+                for (int i = theMin + 1; i < theMax; ++i) {
+                    drawBox(sdlRenderer, drawingPoint->x, i, color);
+                }
             }
+
+            drawingPoint = drawingPoint->previous;
+            drawBox(sdlRenderer, drawingPoint->x, drawingPoint->y, color);
         }
+        drawCircle(sdlRenderer, head.x, head.y, color);
+
+        Uint32 appleColor = 0xff0000ff;
+        drawCircle(sdlRenderer, applePosition.x, applePosition.y, appleColor);
 
         // Move
         betweenMovementTemp += SNAKE_SPEED / FPS;
         if (betweenMovementTemp > 1.0f) {
             betweenMovementTemp -= 1.0f;
 
-            // right-left
             if (direction == 1) {
                 if (head.y == head.previous->y) {
                     insertPoint(&head);
@@ -232,39 +225,50 @@ int main() {
             }
         }
 
-        SNAKE_POINT *drawingPoint = &head;
-        Uint32 color = 0xffff0000;
-
-        while (drawingPoint->previous != NULL) {
-            // draw till the tail
-            if (drawingPoint->x != drawingPoint->previous->x) {
-                int a = drawingPoint->previous->x, b = drawingPoint->x;
-                int theMin = min(a, b), theMax = max(a, b);
-                for (int i = theMin + 1; i < theMax; ++i) {
-                    drawBox(sdlRenderer, i, drawingPoint->y, color);
-                }
-            } else {
-                int a = drawingPoint->previous->y, b = drawingPoint->y;
-                int theMin = min(a, b), theMax = max(a, b);
-                for (int i = theMin + 1; i < theMax; ++i) {
-                    drawBox(sdlRenderer, drawingPoint->x, i, color);
-                }
-            }
-
-            drawingPoint = drawingPoint->previous;
-            drawBox(sdlRenderer, drawingPoint->x, drawingPoint->y, color);
-        }
-        drawCircle(sdlRenderer, head.x, head.y, color);
-
-        Uint32 appleColor = 0xff0000ff;
-        drawCircle(sdlRenderer, applePosition.x, applePosition.y, appleColor);
-
         SDL_RenderPresent(sdlRenderer);
         SDL_Delay(1000 / FPS);
+
+        // listen for key events
+        SDL_Event sdlEvent;
+        while (SDL_PollEvent(&sdlEvent)) {
+            switch (sdlEvent.type) {
+                case SDL_QUIT:
+                    shallExit = SDL_TRUE;
+                    break;
+                case SDL_KEYUP:
+                    switch (sdlEvent.key.keysym.scancode) {
+                        case SDL_SCANCODE_UP:
+                            if (!(head.y == head.previous->y && head.x > head.previous->x)) {
+                                direction = 0;
+                                toThePositive = -1;
+                            }
+                            break;
+                        case SDL_SCANCODE_DOWN:
+                            if (!(head.y == head.previous->y && head.x < head.previous->x)) {
+                                direction = 0;
+                                toThePositive = 1;
+                            }
+                            break;
+                        case SDL_SCANCODE_RIGHT:
+                            if (!(head.x == head.previous->x && head.y < head.previous->y)) {
+                                direction = 1;
+                                toThePositive = 1;
+                            }
+                            break;
+                        case SDL_SCANCODE_LEFT:
+                            if (!(head.x == head.previous->x && head.y > head.previous->y)) {
+                                direction = 1;
+                                toThePositive = -1;
+                            }
+                            break;
+                    }
+            }
+        }
     }
 
-    // Exit
     SDL_DestroyWindow(sdlWindow);
+
+    printf("Hello World\n");
     SDL_Quit();
     return 0;
 }
